@@ -151,43 +151,7 @@ git remote add origin https://github.com/<your-username>/gcp-cloudrun-cicd.git
 git push -u origin main
 ```
 
----
 
-## 📁 Project Structure
-
-```
-gcp-cloudrun-cicd/
-│
-├── app.py
-├── requirements.txt
-├── Dockerfile
-└── README.md
-```
-
----
-
-## 🔜 Next Steps
-
-* Create Artifact Registry
-* Configure IAM & Service Account
-* Setup GitHub Actions (CI/CD)
-* Push image to Artifact Registry
-* Deploy application to Cloud Run
-* (Optional) Attach Load Balancer
-
----
-
-## 🧠 What You’ll Learn
-
-* Cloud Run deployment workflow
-* Docker image lifecycle in GCP
-* Artifact Registry usage
-* GitHub Actions for CI/CD
-* IAM basics for Cloud Run
-
----
-
-🚀 **This project is beginner-friendly and production-oriented, designed to demonstrate real-world GCP CI/CD practices.**
 
 ---
 
