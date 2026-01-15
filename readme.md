@@ -25,8 +25,27 @@ Cloud Run
       ↓
 Public HTTPS Endpoint (Port 80)
 ```
+---
+## 📌 Project Architecture
+
+This project demonstrates a production-grade CI/CD pipeline on Google Cloud Platform.
+
+### Flow Overview
+1. Developer pushes code to GitHub
+2. GitHub Actions builds Docker image using OIDC authentication
+3. Image is pushed to Artifact Registry
+4. Cloud Run deploys the container
+5. External HTTP Load Balancer routes traffic via Serverless NEG
+
+### Architecture Diagram
+![Architecture Diagram](diagrams/architecture.png)
+## 🏗️ Architecture Diagram
+
+📌 [View interactive diagram on Eraser](https://app.eraser.io/workspace/D5RdixWmYoXh3rxFUSLr)
 
 ---
+
+
 
 ## ✅ Prerequisites
 
