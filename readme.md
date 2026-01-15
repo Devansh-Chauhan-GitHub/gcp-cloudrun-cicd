@@ -514,9 +514,155 @@ When this finishes successfully:
 
 You’ll see a URL like:
 
-```
-https://cloudrun-app-xxxxx-uc.a.run.app
-```
+[https://cloudrun-app-xxxxx-uc.a.run.app](https://cloudrun-app-xxxxx-uc.a.run.app)
 
 ---
+🚀 PHASE 4 – External HTTP Load Balancer in front of Cloud Run
+🎯 What we are doing (very clear goal)
 
+Right now:
+
+Cloud Run already gives you a public HTTPS URL
+
+BUT in real architectures:
+
+We put a Global HTTP(S) Load Balancer
+
+We expose traffic on port 80
+
+We get Google Front End (GFE) benefits (DDoS protection, CDN-ready)
+
+🧠 Architecture (FINAL)
+Users (HTTP :80)
+   ↓
+External HTTP Load Balancer (Global IP)
+   ↓
+Serverless NEG
+   ↓
+Cloud Run Service
+
+
+Services involved:
+
+Cloud Run
+
+Google Cloud Load Balancing
+
+Serverless NEG
+
+⚠️ Important Concept (INTERVIEW GOLD)
+
+Cloud Run cannot be attached directly to a load balancer
+
+Instead:
+
+GCP uses Serverless Network Endpoint Groups (NEG)
+
+LB → Serverless NEG → Cloud Run
+
+Remember this line. Interviewers love it.
+
+🧪 STEP 1 – Make Cloud Run ingress compatible
+Go to:
+
+Cloud Run → cloudrun-app → Edit & Deploy New Revision
+
+Set:
+
+Ingress:
+✅ Allow all traffic
+
+Save & deploy.
+
+📌 Why?
+
+Load balancer traffic must be allowed to reach Cloud Run.
+
+🧪 STEP 2 – Create Load Balancer (GUI)
+Navigation
+
+Network Services → Load balancing → Create Load Balancer
+
+Choose:
+
+Application Load Balancer (HTTP/S)
+
+From Internet to my VMs or serverless services
+
+Click Continue
+
+🧪 STEP 3 – Backend Configuration (MOST IMPORTANT)
+Backend type
+
+Select:
+
+Serverless network endpoint group
+
+Click Create a serverless NEG
+
+Serverless NEG details
+
+Name: cloudrun-neg
+
+Region: asia-south1
+
+Serverless service: Cloud Run
+
+Service: cloudrun-app
+
+Click Create
+
+✅ Backend connected to Cloud Run.
+
+🧪 STEP 4 – Frontend Configuration (Port 80)
+Frontend settings
+
+Protocol: HTTP
+
+IP version: IPv4
+
+Port: 80
+
+IP address: Create new (global)
+
+📌 Google will auto-create:
+
+URL map
+
+Target HTTP proxy
+
+Forwarding rule
+
+🧪 STEP 5 – Review & Create
+
+Review all settings
+
+Click Create
+
+⏳ Wait 2–5 minutes.
+
+✅ What you get after creation
+
+🌍 Global static IP
+
+🌐 Public HTTP endpoint on port 80
+
+🚀 Traffic routed to Cloud Run
+
+Example:
+
+http://34.xxx.xxx.xxx
+
+🧪 STEP 6 – Test
+
+Open browser:
+
+http://<LOAD_BALANCER_IP>
+
+
+You should see:
+
+Hello from GCP Cloud Run 🚀
+
+
+🎉 DONE.
