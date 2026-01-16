@@ -1444,6 +1444,7 @@ You should now have:
 ❌ No Cloud Run connection yet (correct)
 
 ---
+# SERVERLESS VPC CONNECTOR REMAINING
 
 # 🚀 Phase 7 — Cloud Run to MySQL (Private VM) Connectivity Verification
 
