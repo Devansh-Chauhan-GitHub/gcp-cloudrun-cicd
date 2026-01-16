@@ -704,3 +704,742 @@ Hello from GCP Cloud Run 🚀
 
 🎉 **DONE** – Cloud Run is now fronted by a Global External HTTP Load Balancer with Serverless NEG.
 
+---
+
+# 🚀 Phase 5 – CI Testing + Chained Deployment to Cloud Run
+
+This document describes the **quality-first CI/CD setup** used in this repository.
+Before deploying to Cloud Run, we ensure:
+
+* Code quality (linting)
+* Application correctness (unit tests)
+* Only **successful builds** are allowed to deploy
+
+This follows **production-grade DevOps best practices**.
+
+---
+
+## 📁 Repository File Structure
+
+```
+gcp-cloudrun-cicd/
+│
+├── .github/
+│   └── workflows/
+│       ├── ci.yml          # Phase 5 – CI Quality Checks
+│       └── deploy.yml      # Build & Deploy (runs only if CI passes)
+│
+├── tests/
+│   ├── conftest.py
+│   └── test_app.py
+│
+├── .flake8
+├── app.py
+├── Dockerfile
+├── requirements.txt
+├── architecture.png
+└── README.md
+```
+
+---
+
+## 🐍 Application Code (`app.py`)
+
+```python
+import os
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route("/")
+def hello():
+    return "Hello from GCP Cloud Run 🚀"
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
+```
+
+### 📌 Why PORT = 8080?
+
+* **Cloud Run injects the PORT environment variable**
+* Default container port for Cloud Run is **8080**
+* Container ports are configurable, so we **do not hardcode 80**
+* This makes the app **portable and Cloud Run–compliant**
+
+---
+
+## 📦 Python Dependencies (`requirements.txt`)
+
+```
+flask
+pytest
+flake8
+```
+
+---
+
+## 🧪 Testing Setup
+
+### `.flake8`
+
+```ini
+[flake8]
+max-line-length = 88
+exclude = .git,__pycache__,venv
+```
+
+---
+
+### `tests/conftest.py`
+
+```python
+import os
+import sys
+
+sys.path.insert(
+    0,
+    os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..")
+    ),
+)
+```
+
+📌 This ensures pytest can correctly import `app.py`.
+
+---
+
+### `tests/test_app.py`
+
+```python
+from app import app
+
+
+def test_root_endpoint():
+    client = app.test_client()
+    response = client.get("/")
+    assert response.status_code == 200
+    assert b"Hello from GCP Cloud Run" in response.data
+```
+
+✅ Confirms:
+
+* App starts correctly
+* Root endpoint returns expected response
+
+---
+
+## 🧪 CI Workflow – Quality Checks (`ci.yml`)
+
+```yaml
+name: Phase 5 - CI Quality Checks
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Linting (flake8)
+        run: |
+          flake8 .
+
+      - name: Run Unit Tests (pytest)
+        run: |
+          pytest
+```
+
+### 🎯 Purpose
+
+* Prevents bad code from being deployed
+* Enforces lint + test discipline
+* Runs on **every push and pull request**
+
+---
+
+## 🚀 Deployment Workflow (`deploy.yml`)
+
+```yaml
+name: Build & Deploy to Cloud Run
+
+on:
+  workflow_run:
+    workflows: ["Phase 5 - CI Quality Checks"]
+    types:
+      - completed
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: projects/367605285780/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+        service_account: github-actions-sa@devansh-483504.iam.gserviceaccount.com
+
+    - name: Set up gcloud
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure Docker for Artifact Registry
+      run: |
+        gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
+
+    - name: Build Docker image
+      run: |
+        docker build -t asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest .
+
+    - name: Push Docker image
+      run: |
+        docker push asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy cloudrun-app \
+          --image asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest \
+          --region asia-south1 \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 8080
+```
+
+---
+
+## 🧠 PATTERN 1 – Workflow Chaining (BEST PRACTICE)
+
+```
+ci.yml (Phase 5 – lint + tests)
+   ↓ SUCCESS ONLY
+deploy.yml (build → push → deploy)
+   ↓
+Artifact Registry
+   ↓
+Cloud Run
+```
+
+### Why this matters
+
+* 🚫 Failed tests never reach production
+* 🔐 No secrets used (OIDC authentication)
+* 🏗 Industry-grade CI/CD design
+
+---
+
+## ✅ Final Outcome
+
+* Every `git push` triggers **CI first**
+* Deployment happens **only if quality checks pass**
+* Cloud Run always runs **tested, clean code**
+
+🎉 **This is production-ready CI/CD used in real companies.**
+---
+# 🚀 Phase 5 – CI Testing + Chained Deployment to Cloud Run
+
+This document describes the **quality-first CI/CD setup** used in this repository.
+Before deploying to Cloud Run, we ensure:
+
+* Code quality (linting)
+* Application correctness (unit tests)
+* Only **successful builds** are allowed to deploy
+
+This follows **production-grade DevOps best practices**.
+
+---
+
+## 📁 Repository File Structure
+
+```
+gcp-cloudrun-cicd/
+│
+├── .github/
+│   └── workflows/
+│       ├── ci.yml          # Phase 5 – CI Quality Checks
+│       └── deploy.yml      # Build & Deploy (runs only if CI passes)
+│
+├── tests/
+│   ├── conftest.py
+│   └── test_app.py
+│
+├── .flake8
+├── app.py
+├── Dockerfile
+├── requirements.txt
+├── architecture.png
+└── README.md
+```
+
+---
+
+## 🐍 Application Code (`app.py`)
+
+```python
+import os
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route("/")
+def hello():
+    return "Hello from GCP Cloud Run 🚀"
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
+```
+
+### 📌 Why PORT = 8080?
+
+* **Cloud Run injects the PORT environment variable**
+* Default container port for Cloud Run is **8080**
+* Container ports are configurable, so we **do not hardcode 80**
+* This makes the app **portable and Cloud Run–compliant**
+
+---
+
+## 📦 Python Dependencies (`requirements.txt`)
+
+```
+flask
+pytest
+flake8
+```
+
+---
+
+## 🧪 Testing Setup
+
+### `.flake8`
+
+```ini
+[flake8]
+max-line-length = 88
+exclude = .git,__pycache__,venv
+```
+
+---
+
+### `tests/conftest.py`
+
+```python
+import os
+import sys
+
+sys.path.insert(
+    0,
+    os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..")
+    ),
+)
+```
+
+📌 This ensures pytest can correctly import `app.py`.
+
+---
+
+### `tests/test_app.py`
+
+```python
+from app import app
+
+
+def test_root_endpoint():
+    client = app.test_client()
+    response = client.get("/")
+    assert response.status_code == 200
+    assert b"Hello from GCP Cloud Run" in response.data
+```
+
+✅ Confirms:
+
+* App starts correctly
+* Root endpoint returns expected response
+
+---
+
+## 🧪 CI Workflow – Quality Checks (`ci.yml`)
+
+```yaml
+name: Phase 5 - CI Quality Checks
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Linting (flake8)
+        run: |
+          flake8 .
+
+      - name: Run Unit Tests (pytest)
+        run: |
+          pytest
+```
+
+### 🎯 Purpose
+
+* Prevents bad code from being deployed
+* Enforces lint + test discipline
+* Runs on **every push and pull request**
+
+---
+
+## 🚀 Deployment Workflow (`deploy.yml`)
+
+```yaml
+name: Build & Deploy to Cloud Run
+
+on:
+  workflow_run:
+    workflows: ["Phase 5 - CI Quality Checks"]
+    types:
+      - completed
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: projects/367605285780/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+        service_account: github-actions-sa@devansh-483504.iam.gserviceaccount.com
+
+    - name: Set up gcloud
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure Docker for Artifact Registry
+      run: |
+        gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
+
+    - name: Build Docker image
+      run: |
+        docker build -t asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest .
+
+    - name: Push Docker image
+      run: |
+        docker push asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy cloudrun-app \
+          --image asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest \
+          --region asia-south1 \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 8080
+```
+
+---
+
+## 🧠 PATTERN 1 – Workflow Chaining (BEST PRACTICE)
+
+```
+ci.yml (Phase 5 – lint + tests)
+   ↓ SUCCESS ONLY
+deploy.yml (build → push → deploy)
+   ↓
+Artifact Registry
+   ↓
+Cloud Run
+```
+
+### Why this matters
+
+* 🚫 Failed tests never reach production
+* 🔐 No secrets used (OIDC authentication)
+* 🏗 Industry-grade CI/CD design
+
+---
+
+## ✅ Final Outcome
+
+* Every `git push` triggers **CI first**
+* Deployment happens **only if quality checks pass**
+* Cloud Run always runs **tested, clean code**
+
+🎉 **This is production-ready CI/CD used in real companies.**
+
+# 🚀 PHASE 6 – DATABASE ON GCP VM (PRIVATE & SECURE)
+
+---
+
+## 🎯 Goal of Phase 6
+
+Create a **database running on a GCP VM** that:
+
+* Is **private (no public exposure)**
+* Lives inside a **VPC**
+* Is **ready to be consumed by Cloud Run** in Phase 7
+
+⚠️ In this phase, **Cloud Run will NOT connect yet**.
+We are only preparing the database correctly.
+
+---
+
+## 🧠 Architecture After Phase 6 (Mental Model)
+
+```
+GCP VPC
+ ├── Subnet
+ │    └── Database VM (Private IP only)
+ │         └── MySQL / PostgreSQL
+ └── (No Cloud Run connection yet)
+
+```
+
+---
+
+## 🧩 Services Used in Phase 6
+
+* Compute Engine
+* Virtual Private Cloud
+
+---
+
+## 🔹 Database Choice (Keep It Simple)
+
+We’ll use **MySQL** (industry-common, easy to debug).
+
+You can switch to PostgreSQL later with the same design.
+
+---
+
+# 🧭 PHASE 6 – STEP-BY-STEP (CONSOLE / GUI)
+
+---
+
+## 1️⃣ Create / Choose VPC
+
+### Console path
+
+**VPC Network → VPC networks**
+
+Options:
+
+* Use **default VPC** (OK for learning)
+* OR your **custom VPC** (recommended if you already created one)
+
+👉 Use **the same VPC that Cloud Run will later use**
+
+---
+
+## 2️⃣ Create Database VM
+
+### Console path
+
+**Compute Engine → VM instances → Create instance**
+
+### Basic configuration
+
+* **Name**: `db-vm`
+* **Region**: `asia-south1`
+* **Zone**: `asia-south1-a`
+* **Machine type**: `e2-medium` (enough)
+
+---
+
+### Boot disk
+
+* **OS**: Ubuntu 22.04 LTS
+* **Disk size**: 20 GB
+
+---
+
+### ⚠️ Networking (VERY IMPORTANT)
+
+Under **Networking → Network interfaces**:
+
+* **Network**: your VPC
+* **Subnetwork**: same subnet
+* ❌ **External IPv4**: **None** (REMOVE IT)
+
+This makes the DB **private only**.
+
+✅ VM will get:
+
+* Private IP (example: `10.128.0.5`)
+* No internet exposure
+
+---
+
+## 3️⃣ Firewall Rule – Allow DB Traffic (Controlled)
+
+### Console path
+
+**VPC Network → Firewall → Create firewall rule**
+
+### Rule details
+
+* **Name**: `allow-mysql-internal`
+* **Direction**: Ingress
+* **Targets**: All instances (or tag later)
+* **Source IP ranges**:
+
+  ```
+  10.0.0.0/8
+
+  ```
+* **Protocols / ports**:
+
+  * TCP: `3306`
+
+📌 This allows **internal VPC traffic only**.
+
+---
+
+## 4️⃣ Install MySQL on the VM
+
+SSH into the VM (console SSH):
+
+```
+sudo apt update
+sudo apt install mysql-server -y
+
+```
+
+---
+
+## 5️⃣ Secure MySQL
+
+```
+sudo mysql_secure_installation
+
+```
+
+Recommended answers:
+
+* Set root password ✅
+* Remove anonymous users ✅
+* Disallow remote root login ✅
+* Remove test DB ✅
+
+---
+
+## 6️⃣ Create Database & User (IMPORTANT)
+
+```
+sudo mysql
+
+```
+
+```
+CREATE DATABASE appdb;
+
+CREATE USER 'appuser'@'%' IDENTIFIED BY 'StrongPassword123';
+
+GRANT ALL PRIVILEGES ON appdb.* TO 'appuser'@'%';
+
+FLUSH PRIVILEGES;
+
+```
+
+Exit:
+
+```
+EXIT;
+
+```
+
+---
+
+## 7️⃣ Configure MySQL to Listen on Private IP
+
+Edit config:
+
+```
+sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+
+```
+
+Change:
+
+```
+bind-address = 0.0.0.0
+
+```
+
+Restart:
+
+```
+sudo systemctl restart mysql
+
+```
+
+---
+
+## 8️⃣ Verify Local DB Access
+
+```
+mysql -u appuser -p -h 127.0.0.1 appdb
+
+```
+
+If this works → DB is healthy ✅
+
+---
+
+## ✅ PHASE 6 CHECKPOINT (VERY IMPORTANT)
+
+You should now have:
+
+✔ VM with **private IP only**
+✔ MySQL installed & secured
+✔ Database created (`appdb`)
+✔ Dedicated DB user
+✔ Firewall allowing **internal traffic only**
+
+❌ No Cloud Run connection yet (correct)
+
