@@ -38,7 +38,7 @@ This project demonstrates a production-grade CI/CD pipeline on Google Cloud Plat
 5. External HTTP Load Balancer routes traffic via Serverless NEG
 
 ### Architecture Diagram
-![Architecture Diagram](diagrams/architecture.png)
+![Architecture Diagram](architecture.png)
 ## 🏗️ Architecture Diagram
 
 📌 [View interactive diagram on Eraser](https://app.eraser.io/workspace/D5RdixWmYoXh3rxFUSLr)
