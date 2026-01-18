@@ -41,7 +41,7 @@ This project demonstrates a production-grade CI/CD pipeline on Google Cloud Plat
 ![Architecture Diagram](architecture.png)
 ## 🏗️ Architecture Diagram
 
-📌 [View interactive diagram on Eraser](https://app.eraser.io/workspace/D5RdixWmYoXh3rxFUSLr)
+📌 [View interactive diagram on Eraser](https://app.eraser.io/workspace/XGk9kTqhRmDT4HUQx1Xa?origin=)
 
 ---
 
