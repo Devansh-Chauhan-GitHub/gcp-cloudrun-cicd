@@ -7,19 +7,32 @@ on:
       - completed
 
 permissions:
-  id-token: write
   contents: read
+  id-token: write
 
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
+    # 🔐 This activates Environment secrets
+    environment: production
+
+    env:
+      PROJECT_ID: devansh-483504
+      REGION: asia-south1
+      SERVICE_NAME: cloudrun-app
+      REPOSITORY: cloudrun-repo
+      IMAGE_NAME: cloudrun-app
+
+      DB_USER: appuser
+      DB_NAME: appdb
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Authenticate to GCP
+    - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
       with:
         workload_identity_provider: projects/367605285780/locations/global/workloadIdentityPools/github-pool/providers/github-provider
@@ -28,24 +41,32 @@ jobs:
     - name: Set up gcloud
       uses: google-github-actions/setup-gcloud@v2
 
-    - name: Configure Docker for Artifact Registry
+    - name: Configure Docker
       run: |
         gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
 
     - name: Build Docker image
       run: |
-        docker build -t asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest .
+        docker build \
+          -t asia-south1-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest .
 
     - name: Push Docker image
       run: |
-        docker push asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest
+        docker push asia-south1-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
 
+    # =================================================
+    # PHASE 8 — Environment Secrets → Secret Manager
+    # =================================================
     - name: Deploy to Cloud Run
       run: |
-        gcloud run deploy cloudrun-app \
-          --image asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest \
-          --region asia-south1 \
+        gcloud run deploy $SERVICE_NAME \
+          --image asia-south1-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest \
+          --region $REGION \
           --platform managed \
           --allow-unauthenticated \
-          --port 8080
-
+          \
+          --set-env-vars DB_USER=$DB_USER,DB_NAME=$DB_NAME \
+          \
+          --set-secrets \
+            DB_PASSWORD=${{ secrets.DB_PASSWORD_SECRET }}:latest, \
+            DB_HOST=${{ secrets.DB_HOST_SECRET }}:latest
