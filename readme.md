@@ -1,4 +1,4 @@
-# 🚀 GCP Cloud Run CI/CD Project (GitHub → Artifact Registry → Cloud Run)
+ # 🚀 GCP Cloud Run CI/CD Project (GitHub → Artifact Registry → Cloud Run)
 
 This project demonstrates a complete **CI/CD workflow on Google Cloud Platform (GCP)** where a simple Flask application is:
 
