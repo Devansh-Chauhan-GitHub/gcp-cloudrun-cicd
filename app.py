@@ -5,19 +5,21 @@ import logging
 from db import get_db_connection
 from redis_client import redis_client
 
+
 # -------------------------
 # APP SETUP
 # -------------------------
 app = Flask(__name__)
 
-# Cloud Run logs everything to stdout/stderr
 logging.basicConfig(level=logging.INFO)
+
 
 # -------------------------
 # CACHE CONFIG
 # -------------------------
 CACHE_TTL = 60  # seconds
 CACHE_KEY_USERS = "users:all"
+
 
 # -------------------------
 # READ (REDIS → MYSQL)
@@ -33,11 +35,8 @@ def get_users():
         app.logger.info("REDIS MISS: querying MySQL")
 
     except Exception as e:
-        # Redis failure should NEVER break the app
         app.logger.error(f"REDIS ERROR: {e}")
-        cached_data = None
 
-    # Fallback to MySQL
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
@@ -47,7 +46,6 @@ def get_users():
     cursor.close()
     conn.close()
 
-    # Populate cache (best-effort)
     try:
         redis_client.setex(
             CACHE_KEY_USERS,
@@ -79,7 +77,6 @@ def create_user(name, email):
     cursor.close()
     conn.close()
 
-    # Invalidate cache (best-effort)
     try:
         redis_client.delete(CACHE_KEY_USERS)
         app.logger.info("REDIS DELETE: users cache invalidated")
@@ -107,7 +104,6 @@ def add_user():
         return {"error": "name and email required"}, 400
 
     create_user(name, email)
-
     return {"status": "user created"}, 201
 
 
