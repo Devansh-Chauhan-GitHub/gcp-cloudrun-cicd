@@ -4,7 +4,7 @@ from app import app
 
 
 def test_root_endpoint():
-    with patch("app.get_users") as mock_get_users:
+    with patch("services.users.get_users") as mock_get_users:
         mock_get_users.return_value = []
 
         client = app.test_client()
