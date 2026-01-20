@@ -1,4 +1,4 @@
-# 🚀 GCP Cloud Run CI/CD Project (GitHub → Artifact Registry → Cloud Run)
+ # 🚀 GCP Cloud Run CI/CD Project (GitHub → Artifact Registry → Cloud Run)
 
 This project demonstrates a complete **CI/CD workflow on Google Cloud Platform (GCP)** where a simple Flask application is:
 
@@ -41,7 +41,7 @@ This project demonstrates a production-grade CI/CD pipeline on Google Cloud Plat
 ![Architecture Diagram](architecture.png)
 ## 🏗️ Architecture Diagram
 
-📌 [View interactive diagram on Eraser](https://app.eraser.io/workspace/D5RdixWmYoXh3rxFUSLr)
+📌 [View interactive diagram on Eraser](https://app.eraser.io/workspace/XGk9kTqhRmDT4HUQx1Xa?origin=)
 
 ---
 
@@ -1443,6 +1443,8 @@ You should now have:
 
 ❌ No Cloud Run connection yet (correct)
 
+---
+# SERVERLESS VPC CONNECTOR DOCS REMAINING
 ---
 
 # 🚀 Phase 7 — Cloud Run to MySQL (Private VM) Connectivity Verification
