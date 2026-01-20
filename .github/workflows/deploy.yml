@@ -38,7 +38,7 @@ jobs:
 
     - name: Push Docker image
       run: |
-        docker push asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest
+        docker push asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest 
 
     - name: Deploy to Cloud Run
       run: |
