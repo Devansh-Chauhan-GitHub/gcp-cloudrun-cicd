@@ -1,56 +1,66 @@
+from flask import Flask, request, jsonify
 import json
 import logging
 
-from flask import Flask, jsonify, request
-
 from db import get_db_connection
-from redis_client import redis_client
+from redis_client import get_redis_client
 
-
+# -------------------------
+# APP SETUP
+# -------------------------
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-
+# -------------------------
+# CACHE CONFIG
+# -------------------------
 CACHE_TTL = 60  # seconds
 CACHE_KEY_USERS = "users:all"
 
 
+# -------------------------
+# READ (REDIS → MYSQL)
+# -------------------------
 def get_users():
-    try:
-        cached_data = redis_client.get(CACHE_KEY_USERS)
+    redis_client = get_redis_client()
 
-        if cached_data:
-            app.logger.info("REDIS HIT: users cache")
-            return json.loads(cached_data)
+    if redis_client:
+        try:
+            cached = redis_client.get(CACHE_KEY_USERS)
+            if cached:
+                app.logger.info("REDIS HIT: users cache")
+                return json.loads(cached)
 
-        app.logger.info("REDIS MISS: querying MySQL")
+            app.logger.info("REDIS MISS: querying MySQL")
+        except Exception as e:
+            app.logger.error(f"REDIS ERROR: {e}")
 
-    except Exception as exc:
-        app.logger.error(f"REDIS ERROR: {exc}")
-
+    # MySQL fallback (source of truth)
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
     cursor.execute("SELECT id, name, email FROM users")
     rows = cursor.fetchall()
-
     cursor.close()
     conn.close()
 
-    try:
-        redis_client.setex(
-            CACHE_KEY_USERS,
-            CACHE_TTL,
-            json.dumps(rows)
-        )
-        app.logger.info("REDIS SET: users cache populated")
-
-    except Exception as exc:
-        app.logger.error(f"REDIS SET FAILED: {exc}")
+    # Populate cache (best effort)
+    if redis_client:
+        try:
+            redis_client.setex(
+                CACHE_KEY_USERS,
+                CACHE_TTL,
+                json.dumps(rows)
+            )
+            app.logger.info("REDIS SET: users cache populated")
+        except Exception as e:
+            app.logger.error(f"REDIS SET FAILED: {e}")
 
     return rows
 
 
+# -------------------------
+# WRITE (MYSQL → CACHE INVALIDATE)
+# -------------------------
 def create_user(name, email):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -61,26 +71,29 @@ def create_user(name, email):
     )
 
     conn.commit()
-
     cursor.close()
     conn.close()
 
-    try:
-        redis_client.delete(CACHE_KEY_USERS)
-        app.logger.info("REDIS DELETE: users cache invalidated")
-    except Exception as exc:
-        app.logger.error(f"REDIS DELETE FAILED: {exc}")
+    redis_client = get_redis_client()
+    if redis_client:
+        try:
+            redis_client.delete(CACHE_KEY_USERS)
+            app.logger.info("REDIS DELETE: users cache invalidated")
+        except Exception as e:
+            app.logger.error(f"REDIS DELETE FAILED: {e}")
 
 
+# -------------------------
+# ROUTES
+# -------------------------
 @app.route("/", methods=["GET"])
 def index():
-    users = get_users()
-    return jsonify(users)
+    return jsonify(get_users())
 
 
 @app.route("/add", methods=["POST"])
 def add_user():
-    data = request.json
+    data = request.json or {}
 
     name = data.get("name")
     email = data.get("email")
@@ -92,5 +105,8 @@ def add_user():
     return {"status": "user created"}, 201
 
 
+# -------------------------
+# LOCAL ENTRYPOINT
+# -------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
