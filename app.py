@@ -7,24 +7,14 @@ from db import get_db_connection
 from redis_client import redis_client
 
 
-# -------------------------
-# APP SETUP
-# -------------------------
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
-logging.basicConfig(level=logging.INFO)[
 
-
-# -------------------------
-# CACHE CONFIG
-# -------------------------
 CACHE_TTL = 60  # seconds
 CACHE_KEY_USERS = "users:all"
 
 
-# -------------------------
-# READ (REDIS → MYSQL)
-# -------------------------
 def get_users():
     try:
         cached_data = redis_client.get(CACHE_KEY_USERS)
@@ -61,9 +51,6 @@ def get_users():
     return rows
 
 
-# -------------------------
-# WRITE (MYSQL → CACHE INVALIDATE)
-# -------------------------
 def create_user(name, email):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -85,9 +72,6 @@ def create_user(name, email):
         app.logger.error(f"REDIS DELETE FAILED: {exc}")
 
 
-# -------------------------
-# ROUTES
-# -------------------------
 @app.route("/", methods=["GET"])
 def index():
     users = get_users()
@@ -108,8 +92,5 @@ def add_user():
     return {"status": "user created"}, 201
 
 
-# -------------------------
-# ENTRYPOINT (LOCAL ONLY)
-# -------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
