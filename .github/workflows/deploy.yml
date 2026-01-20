@@ -15,8 +15,8 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
-    # 🔐 This activates Environment secrets
-    environment: production
+    # 🔐 Use GitHub Actions Environment (Environment Secrets)
+    environment: db-sql-secrets
 
     env:
       PROJECT_ID: devansh-483504
@@ -25,6 +25,7 @@ jobs:
       REPOSITORY: cloudrun-repo
       IMAGE_NAME: cloudrun-app
 
+      # Non-sensitive DB config
       DB_USER: appuser
       DB_NAME: appdb
 
@@ -52,11 +53,7 @@ jobs:
 
     - name: Push Docker image
       run: |
-<<<<<<< HEAD
         docker push asia-south1-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
-=======
-        docker push asia-south1-docker.pkg.dev/devansh-483504/cloudrun-repo/cloudrun-app:latest 
->>>>>>> 46ea657ff55534190a4138fb59ddbe31f889a57a
 
     # =================================================
     # PHASE 8 — Environment Secrets → Secret Manager
