@@ -1,9 +1,11 @@
-from flask import Flask, request, jsonify
 import json
 import logging
 
+from flask import Flask, jsonify, request
+
 from db import get_db_connection
 from redis_client import redis_client
+
 
 
 # -------------------------
@@ -14,11 +16,13 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
+
 # -------------------------
 # CACHE CONFIG
 # -------------------------
 CACHE_TTL = 60  # seconds
 CACHE_KEY_USERS = "users:all"
+
 
 
 # -------------------------
@@ -34,8 +38,8 @@ def get_users():
 
         app.logger.info("REDIS MISS: querying MySQL")
 
-    except Exception as e:
-        app.logger.error(f"REDIS ERROR: {e}")
+    except Exception as exc:
+        app.logger.error(f"REDIS ERROR: {exc}")
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -54,10 +58,11 @@ def get_users():
         )
         app.logger.info("REDIS SET: users cache populated")
 
-    except Exception as e:
-        app.logger.error(f"REDIS SET FAILED: {e}")
+    except Exception as exc:
+        app.logger.error(f"REDIS SET FAILED: {exc}")
 
     return rows
+
 
 
 # -------------------------
@@ -80,8 +85,9 @@ def create_user(name, email):
     try:
         redis_client.delete(CACHE_KEY_USERS)
         app.logger.info("REDIS DELETE: users cache invalidated")
-    except Exception as e:
-        app.logger.error(f"REDIS DELETE FAILED: {e}")
+    except Exception as exc:
+        app.logger.error(f"REDIS DELETE FAILED: {exc}")
+
 
 
 # -------------------------
@@ -105,6 +111,7 @@ def add_user():
 
     create_user(name, email)
     return {"status": "user created"}, 201
+
 
 
 # -------------------------
