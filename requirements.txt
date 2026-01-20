@@ -2,3 +2,4 @@ flask
 pytest
 flake8
 mysql-connector-python
+redis

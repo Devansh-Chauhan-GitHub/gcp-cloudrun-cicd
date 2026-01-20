@@ -1,63 +1,85 @@
-import os
-from flask import Flask, render_template, request, redirect, url_for
-import mysql.connector
+from flask import Flask, request, jsonify
+import json
+
+from db import get_db_connection
+from redis_client import redis_client
 
 app = Flask(__name__)
 
+CACHE_TTL = 60  # seconds
+CACHE_KEY_USERS = "users:all"
 
-def get_db_connection():
-    return mysql.connector.connect(
-        host=os.environ.get("DB_HOST"),
-        user=os.environ.get("DB_USER"),
-        password=os.environ.get("DB_PASSWORD"),
-        database=os.environ.get("DB_NAME"),
-        connection_timeout=5,
+
+# -------------------------
+# READ (CACHE → DB FALLBACK)
+# -------------------------
+def get_users():
+    cached_data = redis_client.get(CACHE_KEY_USERS)
+
+    if cached_data:
+        app.logger.info("REDIS HIT: users cache")
+        return json.loads(cached_data)
+
+    app.logger.info("REDIS MISS: querying MySQL")
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id, name, email FROM users")
+    rows = cursor.fetchall()
+
+    redis_client.setex(CACHE_KEY_USERS, CACHE_TTL, json.dumps(rows))
+
+    cursor.close()
+    conn.close()
+
+    return rows
+
+
+# -------------------------
+# WRITE (DB → CACHE INVALIDATE)
+# -------------------------
+def create_user(name, email):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "INSERT INTO users (name, email) VALUES (%s, %s)",
+        (name, email)
     )
 
+    conn.commit()
 
-@app.route("/")
+    cursor.close()
+    conn.close()
+
+    # invalidate cache
+    redis_client.delete(CACHE_KEY_USERS)
+
+
+# -------------------------
+# ROUTES
+# -------------------------
+@app.route("/", methods=["GET"])
 def index():
-    # CI-safe mode
-    if not os.environ.get("DB_HOST"):
-        return "CI mode: DB not configured", 200
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, name, email FROM users")
-        users = cursor.fetchall()
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        return f"Database error: {str(e)}", 500
-
-    return render_template("index.html", users=users)
+    users = get_users()
+    return jsonify(users)
 
 
 @app.route("/add", methods=["POST"])
 def add_user():
-    name = request.form.get("name")
-    email = request.form.get("email")
+    data = request.json
+    name = data.get("name")
+    email = data.get("email")
 
     if not name or not email:
-        return "Name and Email required", 400
+        return {"error": "name and email required"}, 400
 
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO users (name, email) VALUES (%s, %s)",
-            (name, email),
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        return f"Database error: {str(e)}", 500
-
-    return redirect(url_for("index"))
+    create_user(name, email)
+    return {"status": "user created"}, 201
 
 
+# -------------------------
+# ENTRYPOINT
+# -------------------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=8080)
