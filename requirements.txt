@@ -3,3 +3,4 @@ pytest
 flake8
 mysql-connector-python
 redis
+gunicorn==21.2.0
