@@ -1,5 +1,7 @@
-from app import app
 from unittest.mock import patch
+
+from app import app
+
 
 def test_root_endpoint():
     with patch("app.get_users") as mock_get_users:
