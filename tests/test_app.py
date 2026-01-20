@@ -1,9 +1,12 @@
 from app import app
-
+from unittest.mock import patch
 
 def test_root_endpoint():
-    client = app.test_client()
-    response = client.get("/")
+    with patch("app.get_users") as mock_get_users:
+        mock_get_users.return_value = []
 
-    assert response.status_code == 200
-    assert b"CI mode" in response.data
+        client = app.test_client()
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert response.json == []
