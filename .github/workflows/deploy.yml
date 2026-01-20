@@ -15,9 +15,12 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
-    # 🔐 Use GitHub Actions Environment (Environment Secrets)
+    # 🔐 Use GitHub Actions Environment
     environment: db-sql-secrets
 
+    # -------------------------------------------------
+    # Non-sensitive configuration only
+    # -------------------------------------------------
     env:
       PROJECT_ID: devansh-483504
       REGION: asia-south1
@@ -25,38 +28,55 @@ jobs:
       REPOSITORY: cloudrun-repo
       IMAGE_NAME: cloudrun-app
 
-      # Non-sensitive DB config
       DB_USER: appuser
       DB_NAME: appdb
 
     steps:
+    # -------------------------------------------------
+    # Checkout source code
+    # -------------------------------------------------
     - name: Checkout code
       uses: actions/checkout@v4
 
+    # -------------------------------------------------
+    # Authenticate to GCP using OIDC
+    # -------------------------------------------------
     - name: Authenticate to Google Cloud
       uses: google-github-actions/auth@v2
       with:
         workload_identity_provider: projects/367605285780/locations/global/workloadIdentityPools/github-pool/providers/github-provider
         service_account: github-actions-sa@devansh-483504.iam.gserviceaccount.com
 
+    # -------------------------------------------------
+    # Setup gcloud CLI
+    # -------------------------------------------------
     - name: Set up gcloud
       uses: google-github-actions/setup-gcloud@v2
 
+    # -------------------------------------------------
+    # Configure Docker auth for Artifact Registry
+    # -------------------------------------------------
     - name: Configure Docker
       run: |
         gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
 
+    # -------------------------------------------------
+    # Build Docker image
+    # -------------------------------------------------
     - name: Build Docker image
       run: |
         docker build \
           -t asia-south1-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest .
 
+    # -------------------------------------------------
+    # Push Docker image
+    # -------------------------------------------------
     - name: Push Docker image
       run: |
         docker push asia-south1-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME:latest
 
     # =================================================
-    # PHASE 8 — Environment Secrets → Secret Manager
+    # PHASE 8 — Secure Secret Injection (FINAL)
     # =================================================
     - name: Deploy to Cloud Run
       run: |
@@ -65,9 +85,5 @@ jobs:
           --region $REGION \
           --platform managed \
           --allow-unauthenticated \
-          \
           --set-env-vars DB_USER=$DB_USER,DB_NAME=$DB_NAME \
-          \
-          --set-secrets \
-            DB_PASSWORD=${{ secrets.DB_PASSWORD_SECRET }}:latest, \
-            DB_HOST=${{ secrets.DB_HOST_SECRET }}:latest
+          --set-secrets DB_HOST=${{ secrets.DB_HOST }}:latest,DB_PASSWORD=${{ secrets.DB_PASSWORD }}:latest
